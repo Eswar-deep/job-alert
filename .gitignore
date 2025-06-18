@@ -6,8 +6,5 @@ __pycache__/
 # Environment
 .env
 
-# SQLite
-storage/jobs.db
-
 # Playwright
 playwright-report/
