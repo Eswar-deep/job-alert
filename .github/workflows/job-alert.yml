@@ -3,7 +3,7 @@ name: Job Alert Bot
 on:
   schedule:
     - cron: '*/10 * * * *'  # Every 10 minutes
-  workflow_dispatch:       # Allow manual run
+  workflow_dispatch:
 
 jobs:
   run-bot:
@@ -24,11 +24,11 @@ jobs:
           pip install -r requirements.txt
 
       - name: Download previous jobs.db
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4  # ✅ Updated to v4
         with:
           name: jobs-db
           path: storage
-        continue-on-error: true  # No artifact on first run — that's OK
+        continue-on-error: true
 
       - name: Run Job Alert Bot
         env:
@@ -37,7 +37,7 @@ jobs:
         run: python main.py
 
       - name: Upload updated jobs.db
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # ✅ Updated to v4
         with:
           name: jobs-db
           path: storage/jobs.db
