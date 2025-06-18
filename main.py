@@ -11,7 +11,7 @@ def notify_if_new(job_id, source, title, company, url):
         message = f"[{source}] {title} at {company} - {url}"
         send_telegram(message)
 
-if __name__ == '__main__':
+def run():
     print("[Job Alert] Starting job checks...")
     init_db()
 
@@ -22,6 +22,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"  [GitHub] Error: {e}")
 
+    # Uncomment these as they become stable
     # try:
     #     print("  → Checking Simplify.jobs...")
     #     for job in check_simplify_jobs():
@@ -37,3 +38,5 @@ if __name__ == '__main__':
         print(f"  [Notify] Error: {e}")
 
     print("[Job Alert] Done.\n")
+if __name__ == "__main__":
+    run()
