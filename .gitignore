@@ -1,5 +1,13 @@
-storage/jobs.db
+# Python
 __pycache__/
-.env
-*.pyc
+*.py[cod]
 *.log
+
+# Environment
+.env
+
+# SQLite
+storage/jobs.db
+
+# Playwright
+playwright-report/
