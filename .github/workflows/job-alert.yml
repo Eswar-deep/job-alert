@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -23,12 +23,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Download previous jobs.db
-        uses: actions/download-artifact@v4  # ✅ Updated to v4
-        with:
-          name: jobs-db
-          path: storage
-        continue-on-error: true
+      - name: Download previous jobs.db from artifacts branch
+        run: |
+          mkdir -p storage
+          git fetch origin artifacts
+          git show origin/artifacts:storage/jobs.db > storage/jobs.db || echo "No previous DB"
 
       - name: Run Job Alert Bot
         env:
@@ -36,8 +35,12 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python main.py
 
-      - name: Upload updated jobs.db
-        uses: actions/upload-artifact@v4  # ✅ Updated to v4
-        with:
-          name: jobs-db
-          path: storage/jobs.db
+      - name: Commit updated jobs.db to artifacts branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin artifacts
+          git checkout -B artifacts origin/artifacts || git checkout --orphan artifacts
+          git add storage/jobs.db
+          git commit -m "Update jobs.db" || echo "No changes to commit"
+          git push origin artifacts
