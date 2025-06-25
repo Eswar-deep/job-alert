@@ -25,6 +25,31 @@ def check_notify_jobs():
         page.goto(NOTIFY_URL, timeout=30000)
         page.wait_for_timeout(5000)  # Allow JS to render content
 
+        # --- Apply Filters ---
+        # Open the 'Fields' dropdown and select 'Software Engineering'
+        try:
+            page.locator("h4:has-text('Fields') ~ button").click()
+            page.wait_for_timeout(500)  # Wait for options to appear
+            labels = page.locator("label").all_inner_texts()
+            # Click the checkbox buttons for the desired fields
+            page.locator("div:has(label:has-text('AI & Machine Learning')) > button[role='checkbox']").click()
+            page.locator("div:has(label:has-text('Software Engineering')) > button[role='checkbox']").click()
+        except Exception as e:
+            print(f"  [Notify] Warning: Could not set 'Fields' filter: {e}")
+
+        # Open the 'Experience Levels' dropdown and select 'Internship' and 'Entry Level/New Grad'
+        try:
+            page.locator("h4:has-text('Experience Levels') ~ button").click()
+            page.wait_for_timeout(500)  # Wait for options to appear
+            # Click the checkbox buttons for the desired experience levels
+            page.locator("div:has(label:has-text('Internship')) > button[role='checkbox']").click()
+            page.locator("div:has(label:has-text('Entry Level/New Grad')) > button[role='checkbox']").click()
+        except Exception as e:
+            print(f"  [Notify] Warning: Could not set 'Experience Levels' filter: {e}")
+
+        page.wait_for_timeout(3000)  # Wait for jobs to update
+        # --- End Apply Filters ---
+
         # Wait for job listings to appear
         for _ in range(10):
             job_buttons = page.query_selector_all("a[target='_blank'] > button")
