@@ -1,39 +1,25 @@
-import sqlite3
+from pymongo import MongoClient
 import os
-from datetime import datetime
+from dotenv import load_dotenv
 
-DB_PATH = "storage/jobs.db"
+load_dotenv()
+MONGO_URI = os.getenv("MONGO_URI")
+client = MongoClient(MONGO_URI)
+db = client["job_alert"]  # You can use any database name you like
+jobs_collection = db["jobs"]
 
 def init_db():
-    os.makedirs("storage", exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS jobs (
-            id TEXT PRIMARY KEY,
-            source TEXT NOT NULL,
-            title TEXT,
-            company TEXT,
-            url TEXT,
-            seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    conn.commit()
-    conn.close()
+    # Create a unique index on 'id' to prevent duplicates
+    jobs_collection.create_index("id", unique=True)
 
 def store_job_if_new(job_id, source, title, company, url):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('SELECT 1 FROM jobs WHERE id = ?', (job_id,))
-    exists = c.fetchone()
-    if exists:
-        conn.close()
+    if jobs_collection.find_one({"id": job_id}):
         return False
-
-    c.execute('''
-        INSERT INTO jobs (id, source, title, company, url, seen_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (job_id, source, title, company, url, datetime.utcnow()))
-    conn.commit()
-    conn.close()
+    jobs_collection.insert_one({
+        "id": job_id,
+        "source": source,
+        "title": title,
+        "company": company,
+        "url": url
+    })
     return True
