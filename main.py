@@ -2,7 +2,7 @@
 from scrapers.github_scraper import check_github_jobs
 from scrapers.simplify_scraper import check_simplify_jobs
 from scrapers.notify_scraper import check_notify_jobs
-from scrapers.handshake_scraper import HandshakeScraper
+from scrapers.workday_scraper import check_workday_jobs
 
 from notify.telegram_bot import send_telegram
 from storage.db import init_db, store_job_if_new
@@ -38,6 +38,13 @@ def run():
     except Exception as e:
         print(f"  [Notify] Error: {e}")
 
+    try:
+        print("  → Checking Workday...")
+        for job in check_workday_jobs():
+            notify_if_new(job["id"], "Workday", job["title"], job["company"], job["url"])
+    except Exception as e:
+        print(f"  [Workday] Error: {e}")
+
     # try:
     #     print("  → Checking Handshake...")
     #     # Replace with your actual credentials or load from env/config
@@ -50,5 +57,6 @@ def run():
     #     print(f"  [Handshake] Error: {e}")
 
     print("[Job Alert] Done.\n")
+
 if __name__ == "__main__":
     run()
