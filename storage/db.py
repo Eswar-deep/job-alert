@@ -1,39 +1,32 @@
-import sqlite3
-import os
+from pymongo import MongoClient
 from datetime import datetime
+import os
+import certifi
 
-DB_PATH = "storage/jobs.db"
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
+DB_NAME = os.getenv("MONGO_DB", "job_alert")
+COLLECTION_NAME = os.getenv("MONGO_COLLECTION", "jobs")
+
+client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
+db = client[DB_NAME]
+jobs_collection = db[COLLECTION_NAME]
 
 def init_db():
-    os.makedirs("storage", exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS jobs (
-            id TEXT PRIMARY KEY,
-            source TEXT NOT NULL,
-            title TEXT,
-            company TEXT,
-            url TEXT,
-            seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    conn.commit()
-    conn.close()
+    # No need to create a separate index; _id is unique by default
+    pass
 
 def store_job_if_new(job_id, source, title, company, url):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('SELECT 1 FROM jobs WHERE id = ?', (job_id,))
-    exists = c.fetchone()
-    if exists:
-        conn.close()
+    # Use the job URL as the MongoDB _id for deduplication
+    try:
+        jobs_collection.insert_one({
+            "_id": url,
+            "source": source,
+            "title": title,
+            "company": company,
+            "url": url,
+            "seen_at": datetime.utcnow()
+        })
+        return True
+    except Exception:
+        # Duplicate key error means job already exists
         return False
-
-    c.execute('''
-        INSERT INTO jobs (id, source, title, company, url, seen_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (job_id, source, title, company, url, datetime.utcnow()))
-    conn.commit()
-    conn.close()
-    return True

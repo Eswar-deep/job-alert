@@ -16,6 +16,7 @@ def run():
     print("[Job Alert] Starting job checks...")
     init_db()
 
+    # Uncomment or comment sources as needed
     try:
         print("  → Checking GitHub...")
         for job in check_github_jobs():
@@ -23,11 +24,10 @@ def run():
     except Exception as e:
         print(f"  [GitHub] Error: {e}")
 
-    # Uncomment these as they become stable
     # try:
-    #     print("  → Checking Simplify.jobs...")
-    #     for job in check_simplify_jobs():
-    #         notify_if_new(job["id"], "Simplify", job["title"], job["company"], job["url"])
+    #     print("  → Checking Notify.Careers...")
+    #     for job in check_notify_jobs():
+    #         notify_if_new(job["id"], "Notify", job["title"], job["company"], job["url"])
     # except Exception as e:
     #     print(f"  [Simplify] Error: {e}")
 
@@ -45,16 +45,6 @@ def run():
     except Exception as e:
         print(f"  [Workday] Error: {e}")
 
-    # try:
-    #     print("  → Checking Handshake...")
-    #     # Replace with your actual credentials or load from env/config
-    #     email = "your_email@example.com"
-    #     password = "your_password"
-    #     handshake_scraper = HandshakeScraper(email, password)
-    #     for job in handshake_scraper.run():
-    #         notify_if_new(job.get("id", ""), "Handshake", job.get("title", ""), job.get("company", ""), job.get("url", ""))
-    # except Exception as e:
-    #     print(f"  [Handshake] Error: {e}")
 
     print("[Job Alert] Done.\n")
 
