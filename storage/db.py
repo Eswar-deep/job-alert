@@ -1,9 +1,15 @@
+import os
 from pymongo import MongoClient
 from datetime import datetime
-import os
 import certifi
+from dotenv import load_dotenv
 
-MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://eswar:eswar@cluster0.y0qjvno.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+print("Current working directory:", os.getcwd())
+print("db.py location:", os.path.abspath(__file__))
+
+load_dotenv()  # This loads variables from .env
+print("Loaded MONGO_URI:", os.getenv("MONGO_URI"))
+MONGO_URI = os.getenv("MONGO_URI")
 DB_NAME = os.getenv("MONGO_DB", "job_alert")
 COLLECTION_NAME = os.getenv("MONGO_COLLECTION", "jobs")
 

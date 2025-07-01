@@ -16,19 +16,19 @@ def run():
     print("[Job Alert] Starting job checks...")
 
     # Uncomment or comment sources as needed
-    # try:
-    #     print("  → Checking GitHub...")
-    #     for job in check_github_jobs():
-    #         notify_if_new(job["id"], "GitHub", job["title"], job["company"], job["url"])
-    # except Exception as e:
-    #     print(f"  [GitHub] Error: {e}")
+    try:
+        print("  → Checking GitHub...")
+        for job in check_github_jobs():
+            notify_if_new(job["id"], "GitHub", job["title"], job["company"], job["url"])
+    except Exception as e:
+        print(f"  [GitHub] Error: {e}")
 
-    # try:
-    #     print("  → Checking Notify.Careers...")
-    #     for job in check_notify_jobs():
-    #         notify_if_new(job["id"], "Notify", job["title"], job["company"], job["url"])
-    # except Exception as e:
-    #     print(f"  [Simplify] Error: {e}")
+    try:
+        print("  → Checking Notify.Careers...")
+        for job in check_notify_jobs():
+            notify_if_new(job["id"], "Notify", job["title"], job["company"], job["url"])
+    except Exception as e:
+        print(f"  [Simplify] Error: {e}")
 
     # try:
     #     print("  → Checking Notify.Careers...")
