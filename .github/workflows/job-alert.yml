@@ -27,7 +27,7 @@ jobs:
 
       - name: Run Job Alert Bot
         env:
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          MONGO_URI: ${{ secrets.MONGO_URI }}
+          TELEGRAM_TOKEN: ${{secrets.TELEGRAM_TOKEN}}
+          TELEGRAM_CHAT_ID: ${{secrets.TELEGRAM_CHAT_ID}}
+          MONGO_URI: ${{secrets.MONGO_URI}}
         run: python main.py
