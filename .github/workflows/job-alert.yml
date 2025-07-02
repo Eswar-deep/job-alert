@@ -8,7 +8,7 @@ on:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 20  # Cancel if it runs longer than 20 minutes
+    #timeout-minutes: 20  # Cancel if it runs longer than 20 minutes
 
     steps:
       - name: Checkout repo
