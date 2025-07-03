@@ -39,7 +39,7 @@ def check_github_jobs():
                 match = re.search(r'href="([^"]+)"', link_html)
                 url = match.group(1) if match else None
 
-                # Only include jobs posted today
+                # Check if job is from today
                 if url and date_posted == today:
                     jobs.append({
                         "id": url,
@@ -47,4 +47,7 @@ def check_github_jobs():
                         "company": company,
                         "url": url
                     })
+                elif url and date_posted != today:
+                    # Jobs are ordered by posting date, so stop once we hit an older job
+                    break
     return jobs

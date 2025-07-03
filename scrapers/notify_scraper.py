@@ -1,6 +1,7 @@
 import json
 import os
 from playwright.sync_api import sync_playwright
+from datetime import datetime
 
 COOKIE_PATH = "storage/notify_cookies.json"
 NOTIFY_URL = "https://app.notify.careers/postings"
@@ -62,20 +63,38 @@ def check_notify_jobs():
             return []
 
         jobs = []
-        job_links = page.query_selector_all("a[target='_blank']")
-
-        for anchor in job_links:
-            url = anchor.get_attribute("href")
-            title = anchor.inner_text().strip()
-            job_id = url
-            company = "Notify"
-
-            jobs.append({
-                "id": job_id,
-                "title": title,
-                "company": company,
-                "url": url
-            })
+        job_cards = page.query_selector_all("div:has(a[target='_blank'])")
+        today = datetime.utcnow().strftime('%-m/%-d/%Y')  # e.g., '7/2/2025'
+        today_alt = datetime.utcnow().strftime('%#m/%#d/%Y')  # Windows compatibility
+        for card in job_cards:
+            try:
+                anchor = card.query_selector("a[target='_blank']")
+                url = anchor.get_attribute("href")
+                title = anchor.inner_text().strip()
+                company_elem = card.query_selector("a[href^='https://'] > button")
+                company = company_elem.inner_text().strip() if company_elem else "Notify"
+                # Find all muted spans, pick the one that matches date format
+                date_elem = None
+                for span in card.query_selector_all("span.text-muted-foreground.font-greycliff.font-medium.opacity-50"):
+                    date_text = span.inner_text().strip()
+                    if "/" in date_text and len(date_text.split("/")) == 3:
+                        date_elem = date_text
+                        break
+                if not date_elem:
+                    continue
+                # Check if job is from today
+                if date_elem == today or date_elem == today_alt:
+                    jobs.append({
+                        "id": url,
+                        "title": title,
+                        "company": company,
+                        "url": url
+                    })
+                else:
+                    # Jobs are ordered by posting date, so stop once we hit an older job
+                    break
+            except Exception as e:
+                print(f"  [Notify] Skipped a card due to parsing error: {e}")
 
         browser.close()
         return jobs
