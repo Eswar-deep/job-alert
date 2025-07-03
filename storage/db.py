@@ -4,17 +4,15 @@ from datetime import datetime
 import certifi
 from dotenv import load_dotenv
 
-print("Current working directory:", os.getcwd())
-print("db.py location:", os.path.abspath(__file__))
 
-load_dotenv()  # This loads variables from .env
-print("Loaded MONGO_URI:", os.getenv("MONGO_URI"))
+
+load_dotenv()  # This loads variables from .en
 MONGO_URI = os.getenv("MONGO_URI")
 DB_NAME = os.getenv("MONGO_DB", "job_alert")
 COLLECTION_NAME = os.getenv("MONGO_COLLECTION", "jobs")
 
 client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
-print("[MongoDB] Connected to MongoDB!")
+#print("[MongoDB] Connected to MongoDB!")
 db = client[DB_NAME]
 jobs_collection = db[COLLECTION_NAME]
 

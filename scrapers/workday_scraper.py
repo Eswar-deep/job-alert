@@ -37,7 +37,6 @@ class WorkdayScraper:
                             posted_on_elem = parent_li.query_selector('[data-automation-id="postedOn"] dd')
                             if posted_on_elem:
                                 posted_on_text = posted_on_elem.text_content().strip()
-                                print(f"Found job with date: {posted_on_text}")  # Debug print
                                 # Only process jobs posted today
                                 if posted_on_text == "Posted Today":
                                     job_data = self._extract_job_from_listing(link, job_url)
@@ -45,11 +44,9 @@ class WorkdayScraper:
                                     jobs.append(job_data)
                                 else:
                                     # Jobs are ordered by posting date, so stop once we hit an older job
-                                    print(f"Stopping at job with date: {posted_on_text}")  # Debug print
                                     break
                             else:
                                 # If we can't find the date, skip this job
-                                print("Could not find posted date for job")  # Debug print
                                 continue
                     except Exception as e:
                         print(f"Error processing job {i+1}: {e}")
