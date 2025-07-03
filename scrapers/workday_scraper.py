@@ -1,5 +1,6 @@
 from playwright.sync_api import sync_playwright
 import time
+from datetime import datetime
 
 class WorkdayScraper:
     def __init__(self, filtered_url: str, company: str = "Workday"):
@@ -28,9 +29,28 @@ class WorkdayScraper:
                         if job_url.startswith('/'):
                             base_url = "https://" + page.url.split('/')[2]
                             job_url = base_url + job_url
-                        job_data = self._extract_job_from_listing(link, job_url)
-                        job_data.update(self._extract_job_from_detail(browser, job_url))
-                        jobs.append(job_data)
+                        
+                        # Find the parent li element to get the posting date
+                        parent_li = link.evaluate_handle('element => element.closest("li")')
+                        if parent_li:
+                            # Look for the posted date within this job listing
+                            posted_on_elem = parent_li.query_selector('[data-automation-id="postedOn"] dd')
+                            if posted_on_elem:
+                                posted_on_text = posted_on_elem.text_content().strip()
+                                print(f"Found job with date: {posted_on_text}")  # Debug print
+                                # Only process jobs posted today
+                                if posted_on_text == "Posted Today":
+                                    job_data = self._extract_job_from_listing(link, job_url)
+                                    job_data.update(self._extract_job_from_detail(browser, job_url))
+                                    jobs.append(job_data)
+                                else:
+                                    # Jobs are ordered by posting date, so stop once we hit an older job
+                                    print(f"Stopping at job with date: {posted_on_text}")  # Debug print
+                                    break
+                            else:
+                                # If we can't find the date, skip this job
+                                print("Could not find posted date for job")  # Debug print
+                                continue
                     except Exception as e:
                         print(f"Error processing job {i+1}: {e}")
                         continue
