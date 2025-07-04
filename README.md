@@ -64,7 +64,7 @@ A Python bot that monitors internship and entry-level job postings from several 
 ## 🎛️ Job Sources & Filter Support
 
 - **GitHub:** Fully supported, parses markdown tables for new jobs from both the Summer Internships and New Grad repositories.
-- **Simplify.jobs:** Supported, but may require updates if site layout changes.
+- **Simplify.jobs:** Under progress
 - **Notify.Careers:** Supported with custom filters. Edit `notify_filters.json` to filter by field or experience level:
   ```json
   {
@@ -95,20 +95,6 @@ A Python bot that monitors internship and entry-level job postings from several 
   - Scheduled workflows (`on: schedule`) only run automatically on the default branch of the **original repository**.
   - **Forks:** Scheduled runs are disabled by default and unreliable even if enabled. Manual runs always work.
 
----
-
-## 🧹 How to Clear the Job Cache
-
-If you want to receive notifications for all jobs again:
-- **MongoDB:**
-  - Connect to your database and run:
-    ```js
-    db.jobs.deleteMany({})
-    ```
-- **SQLite:**
-  - Delete the `storage/jobs.db` file.
-
----
 
 ## 🛠️ Troubleshooting & FAQ
 
@@ -116,12 +102,8 @@ If you want to receive notifications for all jobs again:
 - Check that your `TELEGRAM_TOKEN` and `TELEGRAM_CHAT_ID` are correct and set as secrets.
 - Check the Actions logs for errors like `[TelegramBot] Failed to send message: ...`.
 - Make sure your bot is not blocked by your Telegram account.
+- You may have already gotten the notification for the job applications.
 
-**Q: The bot says jobs are "already sent" but I never got them!**
-- This means the job URLs are already in the database. This can happen if:
-  - The bot ran before with the same jobs.
-  - Telegram credentials were wrong during the first run (jobs were marked as sent but not delivered).
-- Clear the job cache to resend all jobs.
 
 **Q: Scheduled runs don't happen in my forked repo!**
 - This is a GitHub limitation. Scheduled workflows are not reliably triggered on forks. Use manual runs or set up the project as a standalone repo.
@@ -130,12 +112,9 @@ If you want to receive notifications for all jobs again:
 - Run the bot manually with `python main.py` after setting up your `.env` or repository secrets.
 - You should receive a test message if there are new jobs.
 
-**Q: How do I use my own MongoDB?**
-- Set the `MONGO_URI` secret to your MongoDB connection string.
-- The bot will use this database for deduplication.
 
 **Q: Why are some Workday jobs missing from my notifications?**
-- Some Workday job postings are only accessible via direct application links ("applylinks") and do not appear in the public Workday job listings. The bot can only scrape jobs that are publicly listed on Workday-powered job boards.
+- Some Workday job postings are only accessible via direct application links ("applylinks") and I was not able to find in the public Workday job listings. The bot can only scrape jobs that are publicly listed on Workday-powered job boards.
 
 ---
 
@@ -161,11 +140,13 @@ MIT License. Free to use and modify. Give credit where due ✨
 
 ## 🗃️ Job Source Status
 
-| Source         | Status         | Notes                              |
-|----------------|----------------|-------------------------------------|
-| GitHub         | ✅ Working     | Markdown parsed                     |
-| Notify.Careers | ✅ Working     | Filter support available            |
-| Workday        | ✅ Working     | Workday job board scraping          |
+| Source         | Status           | Notes                                 |
+|----------------|------------------|---------------------------------------|
+| GitHub         | ✅ Working       | Markdown parsed from two repos        |
+| Notify.Careers | ✅ Working       | Filter support available              |
+| Workday        | ✅ Working       | Workday job board scraping            |
+| Simplify.jobs  | In Progress      | Dynamic page, takes too long to scrape|
+| LinkedIn       | Not Yet Supported| Scraping is difficult                 |
 
 ---
 
