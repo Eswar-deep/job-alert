@@ -96,6 +96,29 @@ A Python bot that monitors internship and entry-level job postings from several 
   - **Forks:** Scheduled runs are disabled by default and unreliable even if enabled. Manual runs always work.
 
 
+## 📦 Dependencies
+
+All required Python packages are listed in `requirements.txt`.
+Install them with:
+
+```bash
+pip install -r requirements.txt
+```
+
+After installing Python dependencies, you must also install Playwright browser binaries:
+
+```bash
+playwright install
+```
+
+**Key dependencies:**
+- `pymongo` — Required for MongoDB support (deduplication)
+- `playwright` — For headless browser scraping
+- `requests`, `python-dotenv`, etc. — For HTTP requests and environment variable management
+- If you run locally and want to use SQLite, no extra package is needed (it's built into Python)
+
+> See `requirements.txt` for the full list and versions.
+
 ## 🛠️ Troubleshooting & FAQ
 
 **Q: I don't get any Telegram notifications!**
@@ -149,7 +172,3 @@ MIT License. Free to use and modify. Give credit where due ✨
 | LinkedIn       | Not Yet Supported| Scraping is difficult                 |
 
 ---
-
-## �� Dependencies
-
-```
