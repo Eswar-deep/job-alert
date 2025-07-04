@@ -58,12 +58,25 @@ def check_notify_jobs():
         jobs = []
         job_cards = page.query_selector_all("div:has(a[target='_blank'])")
         now = datetime.utcnow()
+        
+        # More flexible date formats that Notify might use
         today_formats = [
-            f"{now.month}/{now.day}/{now.year}",
-            f"{now.month:02d}/{now.day:02d}/{now.year}",
+            f"{now.month}/{now.day}/{now.year}",      # M/D/YYYY
+            f"{now.month:02d}/{now.day:02d}/{now.year}", # MM/DD/YYYY
+            f"{now.day}/{now.month}/{now.year}",      # D/M/YYYY
+            f"{now.day:02d}/{now.month:02d}/{now.year}", # DD/MM/YYYY
+            "Today",
+            "Just posted",
+            "Posted today"
         ]
         
-        for card in job_cards:
+        print(f"  [Notify] Looking for jobs with dates: {today_formats}")
+        print(f"  [Notify] Found {len(job_cards)} job cards to check")
+        
+        jobs_found = 0
+        jobs_today = 0
+        
+        for i, card in enumerate(job_cards):
             try:
                 anchor = card.query_selector("a[target='_blank']")
                 url = anchor.get_attribute("href")
@@ -71,27 +84,55 @@ def check_notify_jobs():
                 company_elem = card.query_selector("a[href^='https://'] > button")
                 company = company_elem.inner_text().strip() if company_elem else "Notify"
                 
+                # Look for date in multiple possible selectors
                 date_elem = None
-                for span in card.query_selector_all("span.text-muted-foreground.font-greycliff.font-medium.opacity-50"):
-                    date_text = span.inner_text().strip()
-                    if "/" in date_text and len(date_text.split("/")) == 3:
-                        date_elem = date_text
+                date_selectors = [
+                    "span.text-muted-foreground.font-greycliff.font-medium.opacity-50",
+                    "span.text-muted-foreground",
+                    "span.opacity-50",
+                    "span:has-text('/')",  # Any span containing a slash (date separator)
+                ]
+                
+                for selector in date_selectors:
+                    for span in card.query_selector_all(selector):
+                        date_text = span.inner_text().strip()
+                        if date_text and ("/" in date_text or date_text.lower() in ["today", "just posted", "posted today"]):
+                            date_elem = date_text
+                            break
+                    if date_elem:
                         break
                 
+                jobs_found += 1
+                
                 if not date_elem:
+                    print(f"    [Notify] Job {i+1}: No date found for '{title}' at {company}")
                     continue
                 
-                if date_elem in today_formats:
+                print(f"    [Notify] Job {i+1}: '{title}' at {company} - Date: '{date_elem}'")
+                
+                # Check if it's from today (case insensitive)
+                is_today = False
+                for today_format in today_formats:
+                    if date_elem.lower() == today_format.lower():
+                        is_today = True
+                        break
+                
+                if is_today:
+                    jobs_today += 1
                     jobs.append({
                         "id": url,
                         "title": title,
                         "company": company,
                         "url": url
                     })
+                    print(f"      ✓ Added to today's jobs!")
                 else:
-                    break
+                    print(f"      ✗ Not from today, skipping")
+                    # Don't break here - continue checking other jobs
+                    
             except Exception as e:
                 print(f"  [Notify] Skipped a card due to parsing error: {e}")
 
+        print(f"  [Notify] Summary: Checked {jobs_found} jobs, found {jobs_today} from today")
         browser.close()
         return jobs

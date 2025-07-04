@@ -1,14 +1,14 @@
 name: Job Alert Bot
 
 on:
-  # schedule:
-  #   - cron: '*/10 * * * *'  # Every 10 minutes
+  schedule:
+    - cron: '*/10 * * * *'  # Every 10 minutes
   workflow_dispatch:        # Allow manual trigger
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    #timeout-minutes: 20  # Cancel if it runs longer than 20 minutes
+    
 
     steps:
       - name: Checkout repo
