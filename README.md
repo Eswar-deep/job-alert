@@ -20,28 +20,6 @@ A Python bot that monitors internship and entry-level job postings from several 
 
 ---
 
-## 📁 Project Structure
-
-```plaintext
-job-alert/
-├── main.py                # Script entry point
-├── scrapers/              # Scraper scripts
-│   ├── github_scraper.py
-│   ├── simplify_scraper.py     # In development
-│   └── notify_scraper.py       # Filter handling in progress
-├── notify/
-│   └── telegram_bot.py    # Telegram notification logic
-├── storage/
-│   ├── db.py              # SQLite operations
-│   └── jobs.db            # Job cache DB
-├── notify_filters.json    # Custom filters for Notify
-├── .env                   # Telegram credentials
-├── requirements.txt       # Project dependencies
-└── README.md              # Project documentation
-```
-
----
-
 ## ⚡ Quick Start
 
 1. **Clone the Repo**
