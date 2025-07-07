@@ -8,16 +8,20 @@ from notify.telegram_bot import send_telegram
 from storage.db import store_job_if_new
 
 def notify_if_new(job_id, source, title, company, url):
-    # Check if this job is new (not already in the database)
-    if store_job_if_new(job_id, source, title, company, url):
+    result = store_job_if_new(job_id, source, title, company, url)
+    if result is True:
         # This job is new - send notification to Telegram
         message = f"[{source}] {title} at {company} - {url}"
         print(f"  📱 SENDING TO TELEGRAM: {message}")
         send_telegram(message)
         return True
-    else:
+    elif result is False:
         # This job was already sent before - skip it
         print(f"  ⏭️  ALREADY SENT: {title} at {company}")
+        return False
+    else:
+        # Some other MongoDB error occurred
+        print(f"  ❌ [MongoDB] Error while processing: {title} at {company}")
         return False
 
 def run():

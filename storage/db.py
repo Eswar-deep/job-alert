@@ -3,6 +3,7 @@ from pymongo import MongoClient
 from datetime import datetime
 import certifi
 from dotenv import load_dotenv
+from pymongo.errors import DuplicateKeyError
 
 
 
@@ -28,7 +29,9 @@ def store_job_if_new(job_id, source, title, company, url):
             "url": url,
             "seen_at": datetime.utcnow()
         })
-        return True
-    except Exception:
-        # Duplicate key error means job already exists
-        return False
+        return True  # New job, inserted successfully
+    except DuplicateKeyError:
+        return False  # Job already exists
+    except Exception as e:
+        print(f"[MongoDB] Insert failed (not duplicate): {e}")
+        return None  # Other MongoDB error
