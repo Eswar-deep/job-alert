@@ -18,6 +18,7 @@ client = MongoClient(
     tls=True,
     tlsCAFile=certifi.where()
 )
+print(client.server_info())
 #print("[MongoDB] Connected to MongoDB!")
 db = client[DB_NAME]
 jobs_collection = db[COLLECTION_NAME]
