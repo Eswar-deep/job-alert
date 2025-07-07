@@ -28,6 +28,9 @@ jobs:
       - name: Update OpenSSL
         run: sudo apt-get update && sudo apt-get install --only-upgrade openssl
 
+      - name: Install CA certificates
+        run: sudo apt-get update && sudo apt-get install -y ca-certificates
+
       - name: Run Job Alert Bot
         env:
           TELEGRAM_TOKEN: ${{secrets.TELEGRAM_TOKEN}}

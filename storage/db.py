@@ -15,13 +15,8 @@ COLLECTION_NAME = os.getenv("MONGO_COLLECTION", "jobs")
 
 client = MongoClient(
     MONGO_URI,
-    tlsCAFile=certifi.where(),
-    ssl=True,
-    ssl_cert_reqs=ssl.CERT_REQUIRED,
-    ssl_match_hostname=True,
-    tlsAllowInvalidCertificates=False,
-    tlsAllowInvalidHostnames=False,
-    ssl_version=ssl.PROTOCOL_TLSv1_2
+    tls=True,
+    tlsCAFile=certifi.where()
 )
 #print("[MongoDB] Connected to MongoDB!")
 db = client[DB_NAME]
