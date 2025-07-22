@@ -1,138 +1,93 @@
 import json
 import os
-from playwright.sync_api import sync_playwright
 from datetime import datetime
+import requests
+import re  # Missing import for regular expressions
 
 COOKIE_PATH = "storage/notify_cookies.json"
-NOTIFY_URL = "https://app.notify.careers/postings"
+NOTIFY_SEARCH_URL = "https://search.notify.careers/multi_search"
 
 def check_notify_jobs():
-    if not os.path.exists(COOKIE_PATH):
-        print("[NotifyScraper] No cookies found. Run login_notify.py first.")
+    print("[NotifyScraper] Fetching jobs from API...")
+    
+    # Define search parameters exactly matching the website
+    search_params = {
+        "searches": [{
+            "query_by": "company_name,headquarter_location,title,description",
+            "per_page": 16,
+            "sort_by": "posted:desc",
+            "highlight_full_fields": "company_name,headquarter_location,title,description",
+            "collection": "postings",
+            "q": "*",
+            "facet_by": "countries,employee_count,experience_levels,fields,industries,ipo_status,last_funding_type,locations,workplace_type",
+            "filter_by": "fields:=[`Software Engineering`, `AI & Machine Learning`] && experience_levels:=[`Internship`, `Entry Level/New Grad`]",
+
+            "max_facet_values": 40,
+            "page": 1
+        }]
+    }
+    
+    # Headers matching the actual request
+    headers = {
+        "accept": "application/json, text/plain, */*",
+        "accept-language": "en-US,en;q=0.9",
+        "content-type": "text/plain",  # Note: Different from previous
+        "origin": "https://app.notify.careers",
+        "referer": "https://app.notify.careers/",
+        "sec-ch-ua": '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-site",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+    }
+
+    try:
+        print("  [Notify] Making API request...")
+        response = requests.post(
+            "https://search.notify.careers/multi_search",
+            params={"x-typesense-api-key": "EaynlHtIjnOzJ7CaJh4JG34Ot8vRCW05"},  # API key in URL params
+            headers=headers,
+            json=search_params  # Using json parameter to automatically handle JSON encoding
+        )
+        
+        print(f"  [Notify] Response status: {response.status_code}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            if "results" in data and len(data["results"]) > 0:
+                hits = data["results"][0].get("hits", [])
+                print(f"  [Notify] Found {len(hits)} jobs")
+                
+                # Process only today's jobs
+                today = datetime.utcnow().strftime("%Y-%m-%d")
+                jobs_today = []
+                
+                for hit in hits:
+                    job = hit["document"]
+                    posted_date = datetime.fromtimestamp(job["posted"]).strftime("%Y-%m-%d")
+                    
+                    if posted_date == today:
+                        jobs_today.append({
+                            "id": job["id"],
+                            "title": job["title"],
+                            "company": job["company_name"],
+                            "url": job["url"],
+                            "posted": posted_date
+                        })
+                
+                print(f"  [Notify] Found {len(jobs_today)} jobs from today")
+                return jobs_today
+            else:
+                print("  [Notify] No results found")
+        else:
+            print(f"  [Notify] Error: {response.status_code} {response.text[:200]}")
+        
         return []
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context()
+    except Exception as e:
+        print(f"  [Notify] Error: {str(e)}")
+        return []
 
-        with open(COOKIE_PATH, "r") as f:
-            cookies = json.load(f)
-            for cookie in cookies:
-                cookie["domain"] = "app.notify.careers"
-            context.add_cookies(cookies)
-
-        page = context.new_page()
-        print("[NotifyScraper] Loading job postings...")
-        page.goto(NOTIFY_URL, timeout=30000)
-        page.wait_for_timeout(5000)
-
-        try:
-            page.locator("h4:has-text('Fields') ~ button").click()
-            page.wait_for_timeout(500)
-            labels = page.locator("label").all_inner_texts()
-            page.locator("div:has(label:has-text('AI & Machine Learning')) > button[role='checkbox']").click()
-            page.locator("div:has(label:has-text('Software Engineering')) > button[role='checkbox']").click()
-        except Exception as e:
-            print(f"  [Notify] Warning: Could not set 'Fields' filter: {e}")
-
-        try:
-            page.locator("h4:has-text('Experience Levels') ~ button").click()
-            page.wait_for_timeout(500)
-            page.locator("div:has(label:has-text('Internship')) > button[role='checkbox']").click()
-            page.locator("div:has(label:has-text('Entry Level/New Grad')) > button[role='checkbox']").click()
-        except Exception as e:
-            print(f"  [Notify] Warning: Could not set 'Experience Levels' filter: {e}")
-
-        page.wait_for_timeout(3000)
-
-        for _ in range(10):
-            job_buttons = page.query_selector_all("a[target='_blank'] > button")
-            if job_buttons:
-                break
-            page.wait_for_timeout(1000)
-        else:
-            print("  [Notify] Error: Job content not found.")
-            browser.close()
-            return []
-
-        jobs = []
-        job_cards = page.query_selector_all("div:has(a[target='_blank'])")
-        now = datetime.utcnow()
-        
-        # More flexible date formats that Notify might use
-        today_formats = [
-            f"{now.month}/{now.day}/{now.year}",      # M/D/YYYY
-            f"{now.month:02d}/{now.day:02d}/{now.year}", # MM/DD/YYYY
-            f"{now.day}/{now.month}/{now.year}",      # D/M/YYYY
-            f"{now.day:02d}/{now.month:02d}/{now.year}", # DD/MM/YYYY
-            "Today",
-            "Just posted",
-            "Posted today"
-        ]
-        
-        print(f"  [Notify] Looking for jobs with dates: {today_formats}")
-        print(f"  [Notify] Found {len(job_cards)} job cards to check")
-        
-        jobs_found = 0
-        jobs_today = 0
-        
-        for i, card in enumerate(job_cards):
-            try:
-                anchor = card.query_selector("a[target='_blank']")
-                url = anchor.get_attribute("href")
-                title = anchor.inner_text().strip()
-                company_elem = card.query_selector("a[href^='https://'] > button")
-                company = company_elem.inner_text().strip() if company_elem else "Notify"
-                
-                # Look for date in multiple possible selectors
-                date_elem = None
-                date_selectors = [
-                    "span.text-muted-foreground.font-greycliff.font-medium.opacity-50",
-                    "span.text-muted-foreground",
-                    "span.opacity-50",
-                    "span:has-text('/')",  # Any span containing a slash (date separator)
-                ]
-                
-                for selector in date_selectors:
-                    for span in card.query_selector_all(selector):
-                        date_text = span.inner_text().strip()
-                        if date_text and ("/" in date_text or date_text.lower() in ["today", "just posted", "posted today"]):
-                            date_elem = date_text
-                            break
-                    if date_elem:
-                        break
-                
-                jobs_found += 1
-                
-                if not date_elem:
-                    print(f"    [Notify] Job {i+1}: No date found for '{title}' at {company}")
-                    continue
-                
-                print(f"    [Notify] Job {i+1}: '{title}' at {company} - Date: '{date_elem}'")
-                
-                # Check if it's from today (case insensitive)
-                is_today = False
-                for today_format in today_formats:
-                    if date_elem.lower() == today_format.lower():
-                        is_today = True
-                        break
-                
-                if is_today:
-                    jobs_today += 1
-                    jobs.append({
-                        "id": url,
-                        "title": title,
-                        "company": company,
-                        "url": url
-                    })
-                    print(f"      ✓ Added to today's jobs!")
-                else:
-                    print(f"      ✗ Not from today, skipping")
-                    # Don't break here - continue checking other jobs
-                    
-            except Exception as e:
-                print(f"  [Notify] Skipped a card due to parsing error: {e}")
-
-        print(f"  [Notify] Summary: Checked {jobs_found} jobs, found {jobs_today} from today")
-        browser.close()
-        return jobs
+check_notify_jobs()
