@@ -139,9 +139,6 @@ playwright install
 - Make sure your bot is not blocked by your Telegram account.
 - You may have already gotten the notification for the job applications.
 
-**Q: Scheduled runs don't happen in my forked repo!**
-- This is a GitHub limitation. Scheduled workflows are not reliably triggered on forks. Use manual runs or set up the project as a standalone repo.
-
 **Q: How do I test Telegram notifications?**
 - Run the bot manually with `python main.py` after setting up your `.env` or repository secrets.
 - You should receive a test message if there are new jobs.
@@ -159,7 +156,7 @@ Found a bug or want to add more scrapers? PRs are welcome! Please open an issue 
 
 ## 🤖 Want Job Alerts with My Filters?
 
-If you want to receive job notifications with the same filters I use, you are welcome to contact me! I can set up the Telegram bot for you so you'll get the same notifications directly to your Telegram as well.
+If you want to receive job notifications as per your filters, you are welcome to contact me! I can set up the Telegram bot for you so you'll get the same notifications directly to your Telegram as well.
 
 ---
 
