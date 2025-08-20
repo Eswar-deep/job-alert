@@ -1,6 +1,6 @@
 # main.py
 from scrapers.github_scraper import check_github_jobs
-from scrapers.simplify_scraper import check_simplify_jobs
+from scrapers.simplify_combined import check_simplify_all
 from scrapers.notify_scraper import check_notify_jobs
 from scrapers.workday_scraper import check_workday_jobs
 
@@ -40,6 +40,18 @@ def run():
                 total_new_jobs += 1
     except Exception as e:
         print(f"  ❌ [GitHub] Error: {e}")
+
+    # Check SimplifyJobs GitHub repository
+    try:
+        print("  → Checking Simplify (New Grad + Off-Season)...")
+        simplify_jobs = check_simplify_all()
+        print(f"    Found {len(simplify_jobs)} Simplify jobs from today")
+
+        for job in simplify_jobs:
+            if notify_if_new(job["id"], job["source"], job["title"], job["company"], job["url"]):
+                total_new_jobs += 1
+    except Exception as e:
+        print(f"  ❌ [Simplify] Error: {e}")
 
     # Check Notify.Careers jobs
     try:
