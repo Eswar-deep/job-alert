@@ -1,5 +1,14 @@
 # 🛎️ Job Alert Bot
 
+**How to use this README like a cheat code**  
+1. **Fork this repo** so you have your own copy.  
+2. **Copy this entire README** (yes, all of it).  
+3. **Paste it into ChatGPT** and say:  
+   > Help me set this up step-by-step  
+4. Follow along — you’ll get a personalized walk-through for installing, configuring, and running your own bot.
+
+---
+
 A Python bot that monitors internship and entry-level job postings from several job boards and **notifies you instantly via Telegram**. Supports custom filters, deduplication, and can run locally or via GitHub Actions.
 
 ---
@@ -73,7 +82,7 @@ A Python bot that monitors internship and entry-level job postings from several 
   }
   ```
 - **Workday:** Supported for scraping jobs from Workday-powered job boards.
-  > **Note:** Some Workday job postings are not visible in public job listings and are only accessible via direct application links ("applylinks"). This bot can only scrape jobs that are publicly listed on Workday-powered job boards. If a job is only accessible through a special link, it will not be detected by the scraper.
+  > **Note:** Some Workday job postings are not visible in public job listings and are only accessible via direct application links ("applylinks"). This bot can only scrape jobs that are publicly listed on Workday-powered job boards.
 
 ---
 
@@ -95,6 +104,7 @@ A Python bot that monitors internship and entry-level job postings from several 
   - Scheduled workflows (`on: schedule`) only run automatically on the default branch of the **original repository**.
   - **Forks:** Scheduled runs are disabled by default and unreliable even if enabled. Manual runs always work.
 
+---
 
 ## 📦 Dependencies
 
@@ -119,6 +129,8 @@ playwright install
 
 > See `requirements.txt` for the full list and versions.
 
+---
+
 ## 🛠️ Troubleshooting & FAQ
 
 **Q: I don't get any Telegram notifications!**
@@ -127,17 +139,12 @@ playwright install
 - Make sure your bot is not blocked by your Telegram account.
 - You may have already gotten the notification for the job applications.
 
-
-**Q: Scheduled runs don't happen in my forked repo!**
-- This is a GitHub limitation. Scheduled workflows are not reliably triggered on forks. Use manual runs or set up the project as a standalone repo.
-
 **Q: How do I test Telegram notifications?**
 - Run the bot manually with `python main.py` after setting up your `.env` or repository secrets.
 - You should receive a test message if there are new jobs.
 
-
 **Q: Why are some Workday jobs missing from my notifications?**
-- Some Workday job postings are only accessible via direct application links ("applylinks") and I was not able to find in the public Workday job listings. The bot can only scrape jobs that are publicly listed on Workday-powered job boards.
+- Some Workday job postings are only accessible via direct application links ("applylinks") and are not in public listings. The bot can only scrape publicly listed jobs.
 
 ---
 
@@ -149,9 +156,7 @@ Found a bug or want to add more scrapers? PRs are welcome! Please open an issue 
 
 ## 🤖 Want Job Alerts with My Filters?
 
-If you want to receive job notifications with the same filters I use, you are welcome to contact me! I can set up the Telegram bot for you so you'll get the same notifications directly to your Telegram as well.
-
-Feel free to open an issue or reach out via the contact information in my GitHub profile.
+If you want to receive job notifications as per your filters, you are welcome to contact me! I can set up the Telegram bot for you so you'll get the same notifications directly to your Telegram as well.
 
 ---
 
@@ -170,5 +175,3 @@ MIT License. Free to use and modify. Give credit where due ✨
 | Workday        | ✅ Working       | Workday job board scraping            |
 | Simplify.jobs  | In Progress      | Dynamic page, takes too long to scrape|
 | LinkedIn       | Not Yet Supported| Scraping is difficult                 |
-
----
