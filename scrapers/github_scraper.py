@@ -1,8 +1,6 @@
-import os
 import requests
 import re
-from datetime import datetime, date
-from typing import Optional
+from datetime import datetime
 
 RAW_URLS = [
     "https://raw.githubusercontent.com/vanshb03/New-Grad-2026/refs/heads/dev/README.md"
@@ -11,33 +9,17 @@ RAW_URLS = [
 TABLE_START_MARKER = "TABLE_START"
 TABLE_END_MARKER = "TABLE_END"
 
-# LOOKBACK_DAYS = 1 means "today only" (0 days old).
-# LOOKBACK_DAYS = 7 means "today + 6 prior days" (up to 6 days old).
-# Condition used below: (today - posted_date).days < LOOKBACK_DAYS
-LOOKBACK_DAYS = max(1, int(os.getenv("LOOKBACK_DAYS", "1")))
-
-
-def _parse_md_date(date_str: str, today: date) -> Optional[date]:
+def _today_md() -> str:
     """
-    Parse a repo-style date like 'Mar 25' (no year) into a date object.
-    Assumes the current year; if that date is in the future relative to today,
-    assume it was posted in the previous year.
+    Repo uses dates like 'Mar 25' (no leading zero).
+    On Windows, strftime doesn't support %-d, so we format then strip.
     """
-    s = (date_str or "").strip().replace("  ", " ")
-    if not s:
-        return None
-    try:
-        parsed = datetime.strptime(s, "%b %d").date().replace(year=today.year)
-    except ValueError:
-        return None
-    if parsed > today:
-        parsed = parsed.replace(year=today.year - 1)
-    return parsed
-
+    # Use local time to match what you expect when running.
+    return datetime.now().strftime("%b %d").replace(" 0", " ")
 
 def check_github_jobs():
     jobs = []
-    today = datetime.now().date()
+    today = _today_md()
     for RAW_URL in RAW_URLS:
         try:
             response = requests.get(RAW_URL, timeout=10)
@@ -80,28 +62,15 @@ def check_github_jobs():
                 match = re.search(r'href="([^"]+)"', link_html)
                 url = match.group(1) if match else None
 
-                if not url:
-                    # Rows without a link (e.g., closed 🔒 rows) — skip without
-                    # breaking, since they can appear between newer valid rows.
-                    continue
-
-                parsed_date = _parse_md_date(date_posted, today)
-                if parsed_date is None:
-                    continue
-
-                days_old = (today - parsed_date).days
-                if days_old < 0:
-                    # Future date (shouldn't happen) — skip.
-                    continue
-                if days_old < LOOKBACK_DAYS:
+                # Check if job is from today
+                if url and date_posted == today:
                     jobs.append({
                         "id": url,
                         "title": title,
                         "company": company,
                         "url": url
                     })
-                else:
-                    # Table is ordered newest-first; once we see an entry
-                    # older than the lookback window, nothing further will qualify.
+                elif url and date_posted != today:
+                    # Jobs are ordered by posting date, so stop once we hit an older job
                     break
     return jobs

@@ -1,5 +1,4 @@
 # scrapers/simplify_combined.py
-import os
 from typing import Optional, List, Dict, Set
 import re
 import requests
@@ -9,11 +8,6 @@ NEW_GRAD_URL = "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Position
 SOURCE_NAME = "Simplify"
 TABLE_START_MARKER = "TABLE_START"
 TABLE_END_MARKER = "TABLE_END"
-
-# LOOKBACK_DAYS = 1 means "today only" (age 0d).
-# LOOKBACK_DAYS = 7 means "today + 6 prior days" (age up to 6d).
-# Condition used below: parse_age_to_days(...) < LOOKBACK_DAYS
-LOOKBACK_DAYS = max(1, int(os.getenv("LOOKBACK_DAYS", "1")))
 
 # ---------------- helpers ----------------
 
@@ -192,8 +186,8 @@ def check_simplify_all() -> List[Dict[str, str]]:
                 else:
                     last_company = job["company"]
 
-                # keep jobs posted within the lookback window
-                if parse_age_to_days(job["age"]) >= LOOKBACK_DAYS:
+                # only today (0d/hours/minutes)
+                if parse_age_to_days(job["age"]) != 0:
                     continue
 
                 jid = (job.get("application_url") or "").strip()
@@ -218,9 +212,8 @@ def check_simplify_all() -> List[Dict[str, str]]:
                 )
                 counts_by_category[current_category] = counts_by_category.get(current_category, 0) + 1
 
-    window_label = "today" if LOOKBACK_DAYS == 1 else f"last {LOOKBACK_DAYS} days"
     for cat, n in sorted(counts_by_category.items(), key=lambda kv: kv[0]):
-        print("  [Simplify] Found %d %s jobs from %s (%s)" % (n, cat, window_label, SOURCE_NAME))
+        print("  [Simplify] Found %d %s jobs from today (%s)" % (n, cat, SOURCE_NAME))
 
-    print("  [Simplify] Total: %d jobs from %s across all categories" % (len(all_jobs), window_label))
+    print("  [Simplify] Total: %d jobs from today across all categories" % len(all_jobs))
     return all_jobs

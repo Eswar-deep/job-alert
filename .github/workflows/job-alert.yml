@@ -4,11 +4,6 @@ on:
   schedule:
     - cron: '*/10 * * * *'  # Every 10 minutes
   workflow_dispatch:        # Allow manual trigger
-    inputs:
-      lookback_days:
-        description: 'How many days back to include (1 = today only, 7 = today + 6 prior days).'
-        required: false
-        default: '1'
 
 jobs:
   run-bot:
@@ -41,5 +36,4 @@ jobs:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           MONGO_URI: ${{ secrets.MONGO_URI }}
-          LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '1' }}
         run: python main.py
