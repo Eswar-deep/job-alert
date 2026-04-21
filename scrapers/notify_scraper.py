@@ -10,6 +10,11 @@ NOTIFY_TYPESENSE_KEY = os.getenv(
 )
 NOTIFY_REQUEST_TIMEOUT = 15
 
+# LOOKBACK_DAYS = 1 means "today only" (0 days old).
+# LOOKBACK_DAYS = 7 means "today + 6 prior days" (up to 6 days old).
+# Condition used below: (today_utc - posted_date_utc).days < LOOKBACK_DAYS
+LOOKBACK_DAYS = max(1, int(os.getenv("LOOKBACK_DAYS", "1")))
+
 FILTERS_PATH = Path("notify_filters.json")
 
 
@@ -55,11 +60,14 @@ def check_notify_jobs():
     filters = _load_notify_filters()
     filter_by = _build_filter_by(filters)
     
+    # Scale page size with the lookback window (default 20/day, capped at 250).
+    per_page = min(250, max(16, LOOKBACK_DAYS * 20))
+
     # Define search parameters exactly matching the website
     search_params = {
         "searches": [{
             "query_by": "company_name,headquarter_location,title,description",
-            "per_page": 16,
+            "per_page": per_page,
             "sort_by": "posted:desc",
             "highlight_full_fields": "company_name,headquarter_location,title,description",
             "collection": "postings",
@@ -106,27 +114,30 @@ def check_notify_jobs():
                 hits = data["results"][0].get("hits", [])
                 print(f"  [Notify] Found {len(hits)} jobs")
                 
-                # Process only today's jobs (compare in UTC to match server-side timestamps)
-                today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-                jobs_today = []
-                
+                # Keep jobs posted within LOOKBACK_DAYS (compare in UTC to match server-side timestamps)
+                today_utc = datetime.now(timezone.utc).date()
+                jobs_in_window = []
+
                 for hit in hits:
                     job = hit["document"]
-                    posted_date = datetime.fromtimestamp(
+                    posted_dt = datetime.fromtimestamp(
                         job["posted"], tz=timezone.utc
-                    ).strftime("%Y-%m-%d")
-                    
-                    if posted_date == today:
-                        jobs_today.append({
-                            "id": job["id"],
-                            "title": job["title"],
-                            "company": job["company_name"],
-                            "url": job["url"],
-                            "posted": posted_date
-                        })
-                
-                print(f"  [Notify] Found {len(jobs_today)} jobs from today")
-                return jobs_today
+                    )
+                    days_old = (today_utc - posted_dt.date()).days
+                    if days_old < 0 or days_old >= LOOKBACK_DAYS:
+                        continue
+
+                    jobs_in_window.append({
+                        "id": job["id"],
+                        "title": job["title"],
+                        "company": job["company_name"],
+                        "url": job["url"],
+                        "posted": posted_dt.strftime("%Y-%m-%d"),
+                    })
+
+                window_label = "today" if LOOKBACK_DAYS == 1 else f"last {LOOKBACK_DAYS} days"
+                print(f"  [Notify] Found {len(jobs_in_window)} jobs from {window_label}")
+                return jobs_in_window
             else:
                 print("  [Notify] No results found")
         else:
