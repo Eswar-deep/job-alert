@@ -1,10 +1,11 @@
 {
   "fields": [
     "AI & Machine Learning",
-    "Software Engineering"
+    "Software Engineering",
+    "DevOps & Infrastructure",
+    "Data & Analytics"
   ],
   "experience_levels": [
-    "Internship",
     "Entry Level/New Grad"
   ]
 }

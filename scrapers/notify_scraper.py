@@ -1,14 +1,59 @@
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
 import requests
-import re  # Missing import for regular expressions
 
-COOKIE_PATH = "storage/notify_cookies.json"
 NOTIFY_SEARCH_URL = "https://search.notify.careers/multi_search"
+NOTIFY_TYPESENSE_KEY = os.getenv(
+    "NOTIFY_TYPESENSE_KEY", "EaynlHtIjnOzJ7CaJh4JG34Ot8vRCW05"
+)
+NOTIFY_REQUEST_TIMEOUT = 15
+
+FILTERS_PATH = Path("notify_filters.json")
+
+
+def _escape_typesense_value(v: str) -> str:
+    # We wrap facet values in backticks; ensure we don't break the syntax.
+    return (v or "").replace("`", "").strip()
+
+
+def _load_notify_filters() -> dict:
+    """
+    Loads filters from `notify_filters.json` in the repo root.
+    Expected shape:
+      { "fields": [...], "experience_levels": [...] }
+    Returns empty dict if missing/invalid.
+    """
+    try:
+        if not FILTERS_PATH.exists():
+            return {}
+        with FILTERS_PATH.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _build_filter_by(filters: dict) -> str:
+    fields = [_escape_typesense_value(x) for x in (filters.get("fields") or []) if str(x).strip()]
+    exp = [_escape_typesense_value(x) for x in (filters.get("experience_levels") or []) if str(x).strip()]
+
+    clauses = []
+    if fields:
+        fields_list = ", ".join(f"`{x}`" for x in fields)
+        clauses.append(f"fields:=[{fields_list}]")
+    if exp:
+        exp_list = ", ".join(f"`{x}`" for x in exp)
+        clauses.append(f"experience_levels:=[{exp_list}]")
+
+    return " && ".join(clauses) if clauses else ""
+
 
 def check_notify_jobs():
     print("[NotifyScraper] Fetching jobs from API...")
+    filters = _load_notify_filters()
+    filter_by = _build_filter_by(filters)
     
     # Define search parameters exactly matching the website
     search_params = {
@@ -20,7 +65,7 @@ def check_notify_jobs():
             "collection": "postings",
             "q": "*",
             "facet_by": "countries,employee_count,experience_levels,fields,industries,ipo_status,last_funding_type,locations,workplace_type",
-            "filter_by": "fields:=[`Software Engineering`, `AI & Machine Learning`] && experience_levels:=[`Internship`, `Entry Level/New Grad`]",
+            **({"filter_by": filter_by} if filter_by else {}),
 
             "max_facet_values": 40,
             "page": 1
@@ -46,10 +91,11 @@ def check_notify_jobs():
     try:
         print("  [Notify] Making API request...")
         response = requests.post(
-            "https://search.notify.careers/multi_search",
-            params={"x-typesense-api-key": "EaynlHtIjnOzJ7CaJh4JG34Ot8vRCW05"},  # API key in URL params
+            NOTIFY_SEARCH_URL,
+            params={"x-typesense-api-key": NOTIFY_TYPESENSE_KEY},
             headers=headers,
-            json=search_params  # Using json parameter to automatically handle JSON encoding
+            json=search_params,
+            timeout=NOTIFY_REQUEST_TIMEOUT,
         )
         
         print(f"  [Notify] Response status: {response.status_code}")
@@ -60,13 +106,15 @@ def check_notify_jobs():
                 hits = data["results"][0].get("hits", [])
                 print(f"  [Notify] Found {len(hits)} jobs")
                 
-                # Process only today's jobs
-                today = datetime.utcnow().strftime("%Y-%m-%d")
+                # Process only today's jobs (compare in UTC to match server-side timestamps)
+                today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
                 jobs_today = []
                 
                 for hit in hits:
                     job = hit["document"]
-                    posted_date = datetime.fromtimestamp(job["posted"]).strftime("%Y-%m-%d")
+                    posted_date = datetime.fromtimestamp(
+                        job["posted"], tz=timezone.utc
+                    ).strftime("%Y-%m-%d")
                     
                     if posted_date == today:
                         jobs_today.append({
@@ -89,5 +137,3 @@ def check_notify_jobs():
     except Exception as e:
         print(f"  [Notify] Error: {str(e)}")
         return []
-
-check_notify_jobs()

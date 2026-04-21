@@ -1,30 +1,13 @@
 # scrapers/simplify_combined.py
-from typing import Optional, List, Dict, Set, Tuple
+from typing import Optional, List, Dict, Set
 import re
 import requests
 
 NEW_GRAD_URL = "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/README.md"
-OFF_SEASON_URL = "https://raw.githubusercontent.com/SimplifyJobs/Summer2026-Internships/dev/README-Off-Season.md"
 
-# Sources and their sections
-SIMPLIFY_SOURCES: List[Dict[str, object]] = [
-    {
-        "source": "Simplify",
-        "url": NEW_GRAD_URL,
-        "sections": [
-            ("Software Engineering", "Software Engineering New Grad Roles"),
-            ("Data Science & AI", "Data Science, AI & Machine Learning New Grad Roles"),
-        ],
-    },
-    {
-        "source": "Simplify Off-Season",
-        "url": OFF_SEASON_URL,
-        "sections": [
-            ("Software Engineering (Off-Season)", "Software Engineering Internship Roles"),
-            ("Data Science & AI (Off-Season)", "Data Science, AI & Machine Learning Internship Roles"),
-        ],
-    },
-]
+SOURCE_NAME = "Simplify"
+TABLE_START_MARKER = "TABLE_START"
+TABLE_END_MARKER = "TABLE_END"
 
 # ---------------- helpers ----------------
 
@@ -52,163 +35,185 @@ def parse_age_to_days(age_str: str) -> int:
     return 999  # unknown/old
 
 def extract_url(cell: str) -> Optional[str]:
-    """Extract URL from HTML <a href="..."> or Markdown [text](url)."""
+    """Extract URL from HTML <a href="..."> (first link)."""
     m = re.search(r'href="([^"]+)"', cell)
-    if m:
-        return m.group(1)
-    m = re.search(r"\((https?://[^)]+)\)", cell)
     if m:
         return m.group(1)
     return None
 
-def extract_job_from_row(parts: List[str]) -> Optional[Dict[str, str]]:
-    """
-    Parse a Markdown table row:
-      | Company | Role | Location | Application | Age |
-    Returns dict or None if header/invalid/closed.
-    """
-    if len(parts) < 6:
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _html_to_text(s: str) -> str:
+    # Keep this conservative: strip tags and normalize whitespace.
+    s = (s or "").replace("<br>", "\n").replace("<br/>", "\n").replace("<br />", "\n")
+    s = _TAG_RE.sub("", s)
+    s = s.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", '"').replace("&#39;", "'")
+    return " ".join(s.split())
+
+
+def _fetch_text(url: str) -> str:
+    resp = requests.get(url, timeout=30)
+    resp.raise_for_status()
+    return resp.text
+
+
+def _extract_table_region(text: str) -> str:
+    # Prefer markers (repo includes them). Fall back to full text.
+    if TABLE_START_MARKER not in text or TABLE_END_MARKER not in text:
+        return text
+
+    start = text.find(TABLE_START_MARKER)
+    end = text.find(TABLE_END_MARKER, start)
+    if start == -1 or end == -1 or end <= start:
+        return text
+    return text[start:end]
+
+
+def _infer_category_from_header(line: str) -> Optional[str]:
+    s = (line or "").lower()
+    if not s.startswith("##"):
+        return None
+    if "software engineering" in s:
+        return "Software Engineering"
+    if "data science" in s or re.search(r"\bai\b", s) or "machine learning" in s:
+        return "Data Science & AI"
+    if "product management" in s:
+        return "Product Management"
+    if "quantitative finance" in s:
+        return "Quantitative Finance"
+    if "hardware engineering" in s:
+        return "Hardware Engineering"
+    if "other" in s:
+        return "Other"
+    return None
+
+
+def _parse_html_tr(tr_html: str) -> Optional[Dict[str, str]]:
+    # Expect <td>Company</td><td>Role</td><td>Location</td><td>Application</td><td>Age</td>
+    tds = re.findall(r"<td\b[^>]*>(.*?)</td>", tr_html, flags=re.IGNORECASE | re.DOTALL)
+    if len(tds) < 5:
         return None
 
-    company = parts[1].strip()
-    role = parts[2].strip()
-    location = parts[3].strip()
-    app_cell = parts[4].strip()
-    age_cell = parts[5].strip()
+    company_cell, role_cell, location_cell, app_cell, age_cell = tds[:5]
 
-    # skip header/separator/blank
-    if company.lower() in ("company", "-------", "") or role.lower() in ("role", "----", ""):
+    company = _html_to_text(company_cell)
+    role = _html_to_text(role_cell)
+    location = _html_to_text(location_cell)
+    age = _html_to_text(age_cell)
+
+    # skip header-ish rows (just in case)
+    if not company or company.lower() == "company" or not role or role.lower() == "role":
         return None
 
-    url = extract_url(app_cell)
-    is_closed = ("🔒" in app_cell) or ("closed" in app_cell.lower())
-
-    if is_closed:
+    # closed roles often show 🔒 instead of a link in "Application"
+    if "🔒" in app_cell or "closed" in app_cell.lower():
         return None
+
+    url = extract_url(app_cell) or ""
 
     return {
         "company": company,
         "role": role,
         "location": location,
-        "application_url": url or "",
-        "age": age_cell,
+        "application_url": url,
+        "age": age,
     }
-
-def _fetch_lines(url: str) -> List[str]:
-    resp = requests.get(url, timeout=30)
-    resp.raise_for_status()
-    return resp.text.splitlines()
-
-def _iter_section_jobs(lines: List[str], section_header_text: str):
-    """
-    Yield jobs inside a section whose header contains `section_header_text`.
-    Only yields rows from 'today' (0d/hours/minutes). Stops when hitting older rows.
-    Carries forward company for '↳' continuation rows (if present).
-    """
-    in_section = False
-    in_table = False
-    last_company: Optional[str] = None
-
-    for raw in lines:
-        line = raw.strip()
-
-        # enter section
-        if line.startswith("## ") and section_header_text in line:
-            in_section = True
-            in_table = False
-            last_company = None
-            continue
-
-        # leave section
-        if in_section and line.startswith("## "):
-            break
-
-        if not in_section:
-            continue
-
-        # table header
-        if line.startswith("|") and "Company" in line and "Role" in line and "Location" in line:
-            in_table = True
-            continue
-
-        # separator
-        if in_table and line.startswith("| ---"):
-            continue
-
-        if in_table:
-            if not line.startswith("|"):
-                in_table = False
-                continue
-
-            parts = line.split("|")
-            job = extract_job_from_row(parts)
-            if not job:
-                continue
-
-            # carry-forward for continuation rows
-            if job["company"] in ("↳", "->", "→"):
-                if last_company:
-                    job["company"] = last_company
-            else:
-                last_company = job["company"]
-
-            # only today
-            if parse_age_to_days(job["age"]) == 0:
-                yield job
-            else:
-                # tables are newest-first; older => stop this section
-                break
 
 # ---------------- public API ----------------
 
 def check_simplify_all() -> List[Dict[str, str]]:
     """
-    Scrape both Simplify sources (New Grad + Off-Season) & categories (SE + DS/AI),
+    Scrape Simplify New Grad Positions (single README URL),
     returning only today's postings. Output items include:
       id, title, company, url, location, age, category, source
     """
-    print("  [Simplify] Loading GitHub pages (New Grad + Off-Season; SE + DS/AI)...")
+    print("  [Simplify] Loading GitHub page (New Grad Positions)...")
 
     all_jobs: List[Dict[str, str]] = []
     seen: Set[str] = set()
 
-    for src in SIMPLIFY_SOURCES:
-        source_name = src["source"]  # type: ignore[assignment]
-        url = src["url"]             # type: ignore[assignment]
-        sections: List[Tuple[str, str]] = src["sections"]  # type: ignore[assignment]
+    try:
+        text = _fetch_text(NEW_GRAD_URL)
+    except requests.RequestException as e:
+        print(f"  [Simplify] Failed to fetch {SOURCE_NAME}: {e}")
+        return []
 
-        try:
-            lines = _fetch_lines(url)  # type: ignore[arg-type]
-        except requests.RequestException as e:
-            print(f"  [Simplify] Failed to fetch {source_name}: {e}")
+    region = _extract_table_region(text)
+
+    # Exclude "Inactive roles" tables (they start at the first <details> in the active region)
+    details_idx = region.lower().find("<details")
+    if details_idx != -1:
+        region = region[:details_idx]
+
+    current_category: str = "Unknown"
+    last_company: Optional[str] = None
+    counts_by_category: Dict[str, int] = {}
+
+    # We'll iterate line-by-line to keep category context, but parse <tr> blocks across lines.
+    buf: List[str] = []
+    in_tr = False
+
+    for raw_line in region.splitlines():
+        line = raw_line.strip()
+
+        cat = _infer_category_from_header(line)
+        if cat:
+            current_category = cat
+            last_company = None
             continue
 
-        for category_name, header_text in sections:
-            section_rows = list(_iter_section_jobs(lines, header_text))
-            cat_count = 0
+        if "<tr" in line.lower():
+            in_tr = True
+            buf = [line]
+            continue
 
-            for job in section_rows:
+        if in_tr:
+            buf.append(line)
+            if "</tr>" in line.lower():
+                in_tr = False
+                tr_html = "\n".join(buf)
+                buf = []
+
+                job = _parse_html_tr(tr_html)
+                if not job:
+                    continue
+
+                # carry-forward for continuation rows
+                if job["company"] in ("↳", "->", "→"):
+                    if last_company:
+                        job["company"] = last_company
+                else:
+                    last_company = job["company"]
+
+                # only today (0d/hours/minutes)
+                if parse_age_to_days(job["age"]) != 0:
+                    continue
+
                 jid = (job.get("application_url") or "").strip()
                 if not jid:
-                    jid = "%s|%s|%s|%s" % (job["company"], job["role"], category_name, source_name)
+                    jid = "%s|%s|%s|%s" % (job["company"], job["role"], current_category, SOURCE_NAME)
 
                 if jid in seen:
                     continue
                 seen.add(jid)
 
-                all_jobs.append({
-                    "id": jid,
-                    "title": job["role"],
-                    "company": job["company"],
-                    "url": job.get("application_url") or "#",
-                    "location": job["location"],
-                    "age": job["age"],
-                    "category": category_name,
-                    "source": source_name,  # type: ignore[assignment]
-                })
-                cat_count += 1
+                all_jobs.append(
+                    {
+                        "id": jid,
+                        "title": job["role"],
+                        "company": job["company"],
+                        "url": job.get("application_url") or "#",
+                        "location": job["location"],
+                        "age": job["age"],
+                        "category": current_category,
+                        "source": SOURCE_NAME,
+                    }
+                )
+                counts_by_category[current_category] = counts_by_category.get(current_category, 0) + 1
 
-            print("  [Simplify] Found %d %s jobs from today (%s)" % (cat_count, category_name, source_name))
+    for cat, n in sorted(counts_by_category.items(), key=lambda kv: kv[0]):
+        print("  [Simplify] Found %d %s jobs from today (%s)" % (n, cat, SOURCE_NAME))
 
-    print("  [Simplify] Total: %d jobs from today across all Simplify sources/categories" % len(all_jobs))
+    print("  [Simplify] Total: %d jobs from today across all categories" % len(all_jobs))
     return all_jobs
