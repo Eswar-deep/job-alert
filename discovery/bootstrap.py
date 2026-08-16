@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
+from collections import Counter
 from typing import Optional
 
 import aiohttp
@@ -90,13 +92,18 @@ async def _probe_workday(session: aiohttp.ClientSession, c: ATSCandidate) -> Opt
 
 
 async def _probe_smartrecruiters(session: aiohttp.ClientSession, c: ATSCandidate) -> Optional[int]:
+    # SmartRecruiters returns HTTP 200 with totalFound=0 for a company slug that
+    # doesn't exist at all (soft-404) — indistinguishable from a real company with
+    # zero open postings, so treat 0 as "not live" rather than a valid board.
     url = f"https://api.smartrecruiters.com/v1/companies/{c.slug}/postings?limit=1"
     async with session.get(url, timeout=PROBE_TIMEOUT) as resp:
         if resp.status != 200:
             return None
         data = await resp.json(content_type=None)
         total = data.get("totalFound")
-        return int(total) if isinstance(total, int) else None
+        if not isinstance(total, int) or total <= 0:
+            return None
+        return total
 
 
 async def _probe_recruitee(session: aiohttp.ClientSession, c: ATSCandidate) -> Optional[int]:
@@ -186,7 +193,14 @@ async def run_bootstrap() -> None:
             cand = ATSCandidate(doc["platform"], doc["slug"], doc.get("extra", {}))
             candidates.setdefault(cand.key, cand)
 
+        by_plat = Counter(c.platform for c in candidates.values())
         print(f"[Bootstrap] {len(candidates)} unique candidate boards extracted.")
+        for plat, n in by_plat.most_common():
+            print(f"             {plat:<16} {n}")
+        if not candidates:
+            print("[Bootstrap] Nothing extracted — seed fetch or parsing failed. Aborting.")
+            return
+        print("[Bootstrap] Probing live APIs...")
 
         # 2. Validate concurrently
         sem = asyncio.Semaphore(CONCURRENCY)
@@ -198,9 +212,9 @@ async def run_bootstrap() -> None:
         dead = [c for c, n in results if n is None]
 
         # 3. Persist
+        print(f"[Bootstrap] Probing done. Persisting {len(live)} live / {len(dead)} dead...")
         registry.upsert_candidates([c for c, _ in live], validated=True)
-        for c, n in live:
-            registry.mark_success(c.key, n)
+        registry.bulk_mark_success([(c.key, n) for c, n in live])
         registry.upsert_candidates(dead, validated=False)  # keep for retry/inspection
 
         by_platform: dict[str, int] = {}
@@ -211,4 +225,7 @@ async def run_bootstrap() -> None:
 
 
 if __name__ == "__main__":
+    # Windows ProactorEventLoop spams "Event loop is closed" on aiohttp teardown.
+    if sys.platform.startswith("win"):
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     asyncio.run(run_bootstrap())
